@@ -12,13 +12,13 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || '');
 
 // Cerebras Client
 const cerebras = new OpenAI({
-  apiKey: CEREBRAS_API_KEY,
+  apiKey: CEREBRAS_API_KEY || 'dummy_key_for_build',
   baseURL: 'https://api.cerebras.ai/v1',
 });
 
 // Nvidia NIM Client
 const nvidia = new OpenAI({
-  apiKey: NVIDIA_API_KEY,
+  apiKey: NVIDIA_API_KEY || 'dummy_key_for_build',
   baseURL: 'https://integrate.api.nvidia.com/v1',
 });
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@deepgram/sdk';
 
-const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || '2b2900cbdd1b37c632992c55f28b672cbf0d9885';
+const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || 'dummy_key_for_build';
 
 export async function POST(request: NextRequest) {
   try {
