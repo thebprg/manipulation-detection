@@ -29,18 +29,10 @@ export async function POST(request: NextRequest) {
     await fs.promises.mkdir(framesDir, { recursive: true });
 
     try {
-      // Handle cookies for Instagram authentication
-      let cookieArgs = '';
-      if (process.env.INSTAGRAM_COOKIES) {
-        const cookiePath = path.join(tempDir, 'cookies.txt');
-        await fs.promises.writeFile(cookiePath, process.env.INSTAGRAM_COOKIES);
-        cookieArgs = `--cookies "${cookiePath}"`;
-      }
-
       // Download video and extract metadata using yt-dlp
       console.log('Downloading video with yt-dlp and extracting metadata...');
       await execAsync(
-        `yt-dlp ${cookieArgs} -f "best[ext=mp4]" --no-playlist --write-info-json -o "${videoPath}" "${url}"`,
+        `yt-dlp -f "best[ext=mp4]" --no-playlist --write-info-json -o "${videoPath}" "${url}"`,
         { timeout: 90000 }
       );
 
