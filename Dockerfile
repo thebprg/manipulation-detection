@@ -1,5 +1,5 @@
 # Base image
-FROM node:20-bullseye-slim
+FROM node:20-bookworm-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
