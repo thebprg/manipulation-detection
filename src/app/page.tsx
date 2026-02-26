@@ -64,6 +64,31 @@ export default function Home() {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>('');
 
+  // Batch processing state
+  const [pendingUrls, setPendingUrls] = useState<{rowNumber: number, url: string, accountId: string}[]>([]);
+  const [isFetchingPending, setIsFetchingPending] = useState(false);
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+
+  const fetchPendingUrls = async () => {
+    try {
+      setIsFetchingPending(true);
+      setError('');
+      const res = await fetch('/api/sheet');
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (data.pending) {
+        setPendingUrls(data.pending);
+      } else {
+        setPendingUrls([]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch pending URLs');
+    } finally {
+      setIsFetchingPending(false);
+    }
+  };
+
   const updateStepStatus = (stepId: string, status: ProcessStep['status']) => {
     setSteps(prev => prev.map(step =>
       step.id === stepId ? { ...step, status } : step
@@ -92,9 +117,7 @@ export default function Home() {
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
   };
 
-  const handleAnalyze = async () => {
-    if (!url.trim()) return;
-
+  const runAnalysis = async (targetUrl: string, rowNumber?: number) => {
     setIsAnalyzing(true);
     setError('');
     setTranscription('');
@@ -113,7 +136,7 @@ export default function Home() {
       const extractResponse = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: targetUrl }),
       });
 
       if (!extractResponse.ok) {
@@ -157,11 +180,12 @@ export default function Home() {
           transcription: transcribeData.transcription,
           frames: extractData.frames,
           reelDescription: extractData.reelDescription,
-          url,
+          url: targetUrl,
           duration: extractData.duration,
           uploaderName: extractData.uploaderName,
           reelTitle: extractData.reelTitle,
-          model: selectedModel
+          model: selectedModel,
+          rowNumber
         }),
       });
 
@@ -180,9 +204,46 @@ export default function Home() {
       setSteps(prev => prev.map(step =>
         step.status === 'active' ? { ...step, status: 'error' } : step
       ));
+      // Rethrow for batch processing if we need it
+      if (document.body.dataset.isBatchProcessing) throw err;
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleAnalyze = async () => {
+    if (!url.trim()) return;
+    await runAnalysis(url);
+  };
+
+  const handleBatchAnalyze = async () => {
+    if (pendingUrls.length === 0) return;
+    setIsBatchProcessing(true);
+    document.body.dataset.isBatchProcessing = "true";
+    setBatchProgress({ current: 0, total: pendingUrls.length });
+    
+    for (let i = 0; i < pendingUrls.length; i++) {
+      const item = pendingUrls[i];
+      setBatchProgress({ current: i + 1, total: pendingUrls.length });
+      
+      // Update UI URL input to show progress internally
+      setUrl(item.url);
+      
+      try {
+        await runAnalysis(item.url, item.rowNumber);
+      } catch (err) {
+        console.error(`Error processing batch URL ${item.url}:`, err);
+        // Continue to the next one even if error occurs
+      }
+      
+      // Add a small 2s delay between successful runs to respect rate limits roughly
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    
+    setIsBatchProcessing(false);
+    document.body.dataset.isBatchProcessing = "false";
+    // Refresh list at the end
+    await fetchPendingUrls();
   };
 
 
@@ -226,8 +287,36 @@ export default function Home() {
         </header>
 
         <div className="url-section">
+          
+          <div className="batch-section" style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>Batch Processing</h3>
+              <button 
+                onClick={fetchPendingUrls} 
+                disabled={isFetchingPending || isBatchProcessing || isAnalyzing} 
+                style={{ padding: '0.4rem 0.8rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', cursor: 'pointer', color: 'white', fontSize: '0.85rem' }}
+              >
+                {isFetchingPending ? 'Fetching...' : 'Fetch Pending URLs'}
+              </button>
+            </div>
+            
+            {pendingUrls.length > 0 ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Found <strong>{pendingUrls.length}</strong> unattended URLs.</span>
+                <button 
+                  onClick={handleBatchAnalyze} 
+                  disabled={isBatchProcessing || isAnalyzing} 
+                  style={{ padding: '0.6rem 1.2rem', background: 'var(--primary-accent)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white', fontWeight: 'bold' }}
+                >
+                  {isBatchProcessing ? `Processing ${batchProgress.current} / ${batchProgress.total}...` : 'Run Batch Analysis'}
+                </button>
+              </div>
+            ) : (
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No pending URLs fetched. Update your Google Apps Script, then click the button above to load rows that have a URL but no V0 score.</span>
+            )}
+          </div>
 
-
+          <div style={{ marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Or analyze a single URL manually:</div>
           <div className="input-wrapper">
             <input
               type="text"

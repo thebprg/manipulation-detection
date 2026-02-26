@@ -71,7 +71,18 @@ async function callLLM(prompt: string, model: string = 'cerebras-native'): Promi
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcription, frames, reelDescription, url, duration, uploaderName, reelTitle, model } = await request.json();
+    const { transcription, frames, reelDescription, url, duration, uploaderName, reelTitle, model, rowNumber } = await request.json();
+
+    // Extract domain for V0 hints
+    let domain = 'Unknown';
+    try {
+      if (url) {
+        const parsedUrl = new URL(url);
+        domain = parsedUrl.hostname.replace('www.', '');
+      }
+    } catch (e) {
+      console.error('Failed to parse URL domain:', e);
+    }
 
     // Default to cerebras-native if model is not provided
     const selectedModel = model || 'cerebras-native';
@@ -140,6 +151,10 @@ CRITICAL INSTRUCTIONS:
 - Evaluate the content using variables V0 through V12.
 - DO NOT CODE V9 (Saturation). Leave it completely out of your output.
 - For each coded variable, provide the assigned scale (numeric) and a 1-sentence reason referencing specific evidence from the transcript or visual descriptions.
+
+ACCURACY HINTS FOR V0 & V1:
+- The source URL domain is identified as: **${domain}**. Use this to explicitly determine V0 (Platform). For example, if it's instagram.com, V0 scale is 3. If tiktok.com, V0 scale is 2.
+- The video duration is calculated as: **${duration} seconds**. Use this to explicitly determine V1 (Content Type). If less than 180s (3 mins), V1 scale is 3. If 180s or longer, V1 scale is 4.
 
 CODEBOOK RULES:
 ${rulesJsonStr}
@@ -220,6 +235,7 @@ Example Format:
 
     // Structure logData for output
     const logData = {
+      rowNumber: rowNumber || null,
       Account_ID: uploaderName || "Unknown",
       URL: url || "N/A",
       V0: varsMap["V0"],
