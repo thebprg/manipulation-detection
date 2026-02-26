@@ -1,0 +1,277 @@
+{
+  "codebook": "Social Media Manipulation Detection Codebook — Standard",
+  "input": "Speech transcription + visual frame descriptions of a social media post.",
+  "output_format": {
+    "per_variable": {
+      "id": "variable ID (e.g. V0)",
+      "scale": "assigned numeric value",
+      "reason": "one sentence citing the specific transcript phrase or visual frame detail that drove the decision"
+    }
+  },
+  "general_rules": [
+    "Code only what is observable in the transcript or frame descriptions. Do not infer creator intent.",
+    "V9 (SATURATION) is pre-computed at the dataset level and will be supplied as context — do not infer it from a single post.",
+    "When evidence is borderline between two scale values, code the higher one."
+  ],
+
+  "variables": [
+
+    {
+      "id": "V0",
+      "name": "PLAT — Platform",
+      "definition": "Platform currently hosting this post.",
+      "scale": {
+        "1": "X (Twitter)",
+        "2": "TikTok",
+        "3": "Instagram",
+        "4": "YouTube",
+        "5": "Reddit",
+        "6": "Other (specify)"
+      },
+      "rule": "Code the platform where the post lives, not any platform referenced or screenshotted inside it. An X post showing an Instagram screenshot = 1."
+    },
+
+    {
+      "id": "V1",
+      "name": "FORMAT — Content Type",
+      "definition": "The native presentation format of the post.",
+      "scale": {
+        "1": "Single image",
+        "2": "Carousel (multiple swipeable images)",
+        "3": "Short video — under 3 minutes (TikToks, Reels, Shorts)",
+        "4": "Long video — 3 minutes or longer (YouTube, long-form TikTok)",
+        "5": "Livestream clip or full recording",
+        "6": "Text-only — no image or video attached"
+      },
+      "rules": [
+        "A video with a static cover/thumbnail = video, not image.",
+        "An image post with a long caption = 1, not 6.",
+        "If video duration is unknown: TikTok/Reels/Shorts default to 3; YouTube defaults to 4."
+      ]
+    },
+
+    {
+      "id": "V2",
+      "name": "DISCLOSE — Sponsorship Disclosure Salience",
+      "definition": "How clearly and visibly a paid commercial relationship is disclosed within the post itself.",
+      "scale": {
+        "0": "No disclosure anywhere in the post.",
+        "1": "Technically present but easy to miss: #ad buried among many hashtags, a single quick verbal mention in passing ('this is gifted' said once mid-sentence), or small on-screen text in a non-prominent position.",
+        "2": "Clear and unmissable: platform 'Paid partnership' or 'Sponsored' badge, 'Ad' label at top of post, or an explicit verbal/on-screen statement such as 'This video is sponsored by X.'"
+      },
+      "rules": [
+        "Disclosure must appear IN the post — caption, on-screen text, spoken audio, or platform badge. A disclosure only in the creator's bio = 0.",
+        "'#ad' placed clearly at the start of a caption = 2. '#ad' buried after 15 other hashtags = 1."
+      ]
+    },
+
+    {
+      "id": "V3",
+      "name": "COMMERCE — Direct Commerce Trigger",
+      "definition": "Whether the post includes any mechanism that shortens the path from watching to purchasing.",
+      "what_counts_as_a_trigger": [
+        "Tappable shop button, cart icon, or product tag on the post",
+        "Pinned or stated link to a product page",
+        "Affiliate link or referral URL",
+        "Discount or promo code shared verbally or in text (e.g. 'use code CLAIRE20')",
+        "'Link in bio' stated alongside a specific product push",
+        "Comment-for-access prompt (e.g. 'comment GLOW and I'll DM you the link')"
+      ],
+      "scale": {
+        "0": "No purchase path — product is mentioned or shown but no buying mechanism is provided.",
+        "1": "At least one trigger from the list above is present."
+      },
+      "rule": "A product name dropped in casual conversation with no link, code, or purchase instruction = 0."
+    },
+
+    {
+      "id": "V4",
+      "name": "SCRIPT_STR — Scripted Persuasion Pressure",
+      "definition": "How heavily the post uses structured, pressure-oriented selling language or techniques. These are techniques borrowed from traditional advertising scripts.",
+      "indicators": {
+        "A_hyperbolic_claims": "Exaggerated superlatives to sell: 'literally life-changing', 'the ONLY thing that worked', 'you NEED this in your life'. Genuine enthusiasm without a purchase push does not count.",
+        "B_problem_solution": "A pain point, insecurity, or frustration is introduced specifically to position the product as the fix. The problem exists to create demand.",
+        "C_urgency_scarcity": "Time or supply pressure to force a decision: 'sale ends tonight', 'only 12 left in stock', 'limited drop', 'prices go up tomorrow'.",
+        "D_social_proof": "Invoked crowd behavior or testimonials to imply the product is already validated: 'thousands of people swear by this', 'this sold out twice', 'everyone is switching to this'.",
+        "E_vague_authority": "Credentials implied without a verifiable source: 'clinically tested', 'dermatologist-approved', 'scientifically formulated' — with no named study, institution, or professional cited.",
+        "F_hard_CTA": "An imperative command to take purchase action NOW — not a soft suggestion. HARD: 'go buy it right now', 'stop scrolling and order this today', 'click the link and get yours'. SOFT (does NOT count): 'check it out if you're interested', 'it's linked below'.",
+        "G_preempting_objections": "Creator anticipates viewer resistance and dismisses it before the viewer raises it: 'I know it seems expensive but trust me', 'you might think you don't need this yet, but...'"
+      },
+      "scale": {
+        "0": "No indicators present — neutral or informational tone.",
+        "1": "1 to 2 indicators present.",
+        "2": "3 or more indicators present — OR — indicator F (hard CTA) combined with C (urgency) or D (social proof), even if only 2 total indicators. This two-indicator combo is treated as high pressure."
+      },
+      "example": "Creator says 'I struggled with dull skin for years [B], this serum is the only thing that worked [A], only 50 bottles left [C], go grab yours right now [F]' → 4 indicators → scale 2."
+    },
+
+    {
+      "id": "V5",
+      "name": "TRUST_BLUR — Parasocial Trust Exploitation",
+      "definition": "The degree to which the post exploits a simulated personal relationship — fake friendship, vulnerability, or authenticity — to lower the viewer's sales resistance. The cue must be tied to the product recommendation, not just part of the creator's general style.",
+      "indicators": [
+        "Friend-address tied to product push: 'bestie, you need to hear this', 'I'm telling you this as a friend' → generic opener like 'hey guys' alone does NOT qualify.",
+        "Authenticity claim as a sales device: 'I would never promote something I don't actually use', 'I'm not just saying this — I genuinely love it', 'this isn't even sponsored, I just had to share it' — note: this last phrase is a trust-blur signal even when DISCLOSE=0.",
+        "Vulnerability lead-in: creator shares a personal struggle, insecurity, or low moment before introducing the product as what helped them. The struggle exists to build emotional trust before the pitch.",
+        "Ad disguised as organic content: structured like a vlog, life update, or spontaneous share rather than a review — 'I wasn't going to post this but...', 'okay I need to tell you what happened to my skin'."
+      ],
+      "scale": {
+        "0": "None — no trust-building language tied to the product recommendation.",
+        "1": "Minor — one trust cue is present but peripheral. The post would still function as a sales pitch if the trust element were removed.",
+        "2": "Core — trust-building IS the primary vehicle for the sale. The post is structured around emotional closeness or personal credibility, and the product is revealed as a natural conclusion to that narrative."
+      },
+      "key_test_1_vs_2": "Ask: if you removed all the personal/emotional framing, would the sales pitch still stand on its own? If yes → 1. If the pitch collapses without the trust framing → 2.",
+      "example": "Creator opens: 'I've never talked about this publicly but I was really struggling with anxiety and my sleep was terrible… I finally found something that helped and I just have to share it with you guys' → product reveal → 'link below' → scale 2 (the vulnerability narrative IS the pitch)."
+    },
+
+    {
+      "id": "V6",
+      "name": "LIFESTYLE_APPEAL — Aspirational Identity Framing",
+      "definition": "The post frames the product as a gateway to an idealized identity, status, or way of living — implying the viewer can become or belong to what is shown by purchasing it.",
+      "what_to_look_for": {
+        "in_frames": "Luxury apartment, designer items, exotic travel, immaculate aesthetic spaces, 'that girl' or 'clean girl' visual routines, premium brand logos visible alongside the product.",
+        "in_transcript": "Identity-upgrade language: 'this is how I stay that girl', 'this is the life you deserve', 'level up your morning routine', 'if you want to look like this...', 'this is what separates the girls who have it together'."
+      },
+      "scale": {
+        "0": "No aspirational lifestyle cues — ordinary setting, no identity framing.",
+        "1": "Aspirational setting or language is present, but the product is sold primarily on its functional merits (ingredients, performance, value). The lifestyle is visual scenery, not the sales argument.",
+        "2": "The lifestyle or identity IS the sales argument. The product is explicitly or implicitly positioned as what gets the viewer to the status, aesthetic, or identity shown. Buying = becoming."
+      },
+      "key_test_for_2": "Does the post suggest — even implicitly — that purchasing this product brings the viewer closer to the identity or lifestyle shown? If yes → 2.",
+      "examples": {
+        "scale_2": "Penthouse kitchen setting, creator in matching loungewear says 'this is how I keep my skin looking like this' while gesturing at her face → product reveal → 'tap the cart' → 2.",
+        "scale_1": "Well-lit video in a stylish apartment, but creator spends the entire time discussing clinical test results and ingredient percentages → 1.",
+        "scale_0": "Creator films in their regular bathroom, discusses product scent and texture plainly → 0."
+      }
+    },
+
+    {
+      "id": "V7",
+      "name": "ENGAGE_CUE — Engagement Engineering",
+      "definition": "How deliberately the post uses mechanics designed to inflate platform engagement metrics (comments, likes, saves, watch time) beyond what the content would naturally generate.",
+      "indicators": [
+        "Rage-bait or polarizing hook: opening statement engineered to provoke strong reactions and comment volume, not to inform (e.g. 'Unpopular opinion: this brand everyone loves is actually terrible').",
+        "Gated giveaway: a prize or resource is offered, but entry requires a specific platform action — commenting a word, liking, following, or tagging someone. Simply linking to an external giveaway page does NOT count.",
+        "Watch-time bait: 'the most important part is at the end', 'stay till the end for the discount', cliffhanger mid-video — used specifically to inflate video completion rate.",
+        "Serialized access bait: content is split into parts where the next part is conditional on engagement ('Part 2 if this gets 500 likes').",
+        "Comment-for-access: viewer must comment a specific word or phrase to receive a product link, promo code, or information via DM."
+      ],
+      "scale": {
+        "0": "No engagement mechanics — 'let me know your thoughts' or 'drop a comment' with no attached mechanic = 0.",
+        "1": "One hook present but it is secondary — the content exists independently and the engagement prompt is added on top.",
+        "2": "The engagement mechanic IS the post's architecture — content or product access is gated behind the action, or the entire post is structured around the hook."
+      },
+      "example": "'Comment the word GLOW and I'll DM you the link — I'll also pick 3 people for a free product' → the post is built around this mechanic → scale 2."
+    },
+
+    {
+      "id": "V8",
+      "name": "PROD_CUE — Production Persuasion Intensity",
+      "definition": "How heavily audio, editing, and visual production techniques are used as persuasion amplifiers — not just for aesthetic quality, but to direct attention toward the purchase and intensify the emotional or impulsive response.",
+      "indicators": {
+        "A_trending_audio": "A popular or viral sound/music track is used — signals algorithmic optimization and creates emotional association.",
+        "B_rapid_jump_cuts": "Fast-paced editing that creates excitement, prevents disengagement, or builds momentum toward a CTA.",
+        "C_heavy_text_overlays": "On-screen text or stickers used to reinforce or repeat the sales message — goes beyond simple captions (e.g. flashing product name, 'GET IT NOW', benefit callouts timed to speech).",
+        "D_before_after": "A visual split-screen or sequential transformation showing a clear contrast — skin, body, space, results — used to demonstrate product impact.",
+        "E_product_closeups": "Macro or deliberate close-up shots of product texture, packaging detail, or application — timed to the persuasive moment, not just incidental.",
+        "F_premium_packaging": "Luxury or premium visual presentation of the product — sleek unboxing, high-gloss surfaces, designer-adjacent aesthetic — used to signal desirability."
+      },
+      "scale": {
+        "0": "No production techniques beyond basic filming — static shot, no music, no editing, no overlays.",
+        "1": "One mild technique present (e.g. a trending song playing in the background but no other techniques).",
+        "2": "Two or more indicators present — OR — any single high-impact indicator: rapid jump cuts (B), heavy text overlays (C), or strong before/after (D) each qualify for score 2 on their own.",
+        "3": "Multiple indicators layered together AND at least one production peak — a beat drop, cut, text flash, or before/after reveal — coincides in time with the verbal purchase trigger (the moment the creator says 'use my code', 'tap the cart', 'link below', or similar) in the transcript."
+      },
+      "how_to_detect_score_3_from_transcript_and_frames": "Look for: frame description noting rapid cuts or bold text overlays + transcript shows 'use my code' or 'link in bio' spoken at the same timestamp or immediately after a described visual/audio climax.",
+      "example": "Frames: rapid cuts throughout, bold flashing text overlaying product name, dramatic skin before/after. Transcript: '…and honestly the results speak for themselves — [beat drop] — tap the cart right now, link is below.' → all indicators + timed to purchase trigger → scale 3."
+    },
+
+    {
+      "id": "V9",
+      "name": "SATURATION — Cross-Creator Campaign Saturation",
+      "definition": "Whether the same product is being promoted simultaneously by many different unique creators on the same platform, indicating a coordinated paid campaign rather than independent organic recommendation.",
+      "scale": {
+        "0": "Low — product does not appear to be part of a coordinated multi-creator push.",
+        "1": "High — product is being promoted by many unique creators in a concentrated time window."
+      },
+      "pre_computed_note": "THIS IS A DERIVED VARIABLE. It is computed across the full dataset, not from a single post. It will be supplied as pre-computed context. Do not attempt to infer it from the post being coded.",
+      "thresholds_for_reference": {
+        "time_window": "7 or 14 days rolling — defined consistently across the dataset.",
+        "rule_A_absolute": "Code 1 if 10 or more UNIQUE creators promote the same product within the window on the same platform.",
+        "rule_B_relative": "Code 1 if this product's posts exceed 20% of all posts collected in that platform/window, even if fewer than 10 creators.",
+        "same_creator_rule": "5 posts from 1 creator = 1 unique creator. Volume from one creator does not inflate the count."
+      }
+    },
+
+    {
+      "id": "V10",
+      "name": "TEEN_CUE — Teen Audience Targeting",
+      "definition": "Observable evidence in the post — in the transcript or frames — that it is directed at or specifically relevant to teenagers (ages 13–17).",
+      "indicators_by_type": {
+        "explicit_cues": [
+          "Direct verbal or text mention of 'teen', 'teenager', 'high schooler', 'high school student'",
+          "Teen-specific hashtags: #teen, #highschool, #backtoschool, #studentlife, #highschoollife",
+          "Content built around an unambiguously teen experience: prom, school lockers, homeroom, first job at 16"
+        ],
+        "implicit_cues": [
+          "School or exam context without naming teens explicitly: 'perfect for when you're studying', 'great for school mornings', 'exam season essential'",
+          "Budget or allowance framing that signals limited independent income: 'only $6 — great if you're saving up', 'affordable even on a student budget'",
+          "Puberty-typical concerns used as the primary hook — not as a background detail: acne as the central problem, period care, managing body image changes, social fitting-in at school",
+          "Visual frame cues: school uniform worn by creator, lockers or classroom visible in background, student backpack prominently shown"
+        ]
+      },
+      "scale": {
+        "0": "No teen targeting cues — content is general or clearly adult-oriented.",
+        "1": "Implicit — framing or context suggests teen relevance without explicitly naming teens.",
+        "2": "Explicit — post directly names teens, high school, or uses teen-specific hashtags or clearly teen settings."
+      },
+      "rule": "Code based only on evidence in the transcript or frame descriptions. Do not infer from platform-level audience demographics. A product teens may use (e.g. lip gloss) with no teen-targeting cues in the post = 0."
+    },
+
+    {
+      "id": "V11",
+      "name": "TEEN_RISK — Product Risk Tier for Teen Audiences",
+      "definition": "The potential harm level of the promoted product category if used or consumed by a teenager. Based on product category, not brand.",
+      "scale": {
+        "0": "Unidentifiable — the product cannot be determined from the transcript or frames.",
+        "1": "Low risk — safe and appropriate for teen use. Examples: clothing, accessories, phone cases, stationery, basic non-medicated skincare (plain moisturizer, lip balm, sunscreen).",
+        "2": "Medium risk — makes outcome claims likely to influence teen body image, self-esteem, or health behavior. Examples: acne-clearing serums with strong claims, beauty or dietary supplements, teeth-whitening kits, 'detox' or 'slimming' teas with mild claims, products promising significant physical transformation.",
+        "3": "High risk — poses meaningful physical, psychological, or developmental risk to minors. Examples: rapid weight-loss products, appetite suppressants, fat burners, nicotine/vaping products, any medication beyond basic pain relief, products containing alcohol, items explicitly marked adult-only."
+      },
+      "rules": [
+        "Code the product category, not the brand name.",
+        "If multiple products appear, code the HIGHEST risk tier present.",
+        "When genuinely uncertain between two tiers, code the higher one.",
+        "Code 0 only when the product truly cannot be identified — not when it seems probably low risk."
+      ]
+    },
+
+    {
+      "id": "V12",
+      "name": "MANIP_INT — Overall Manipulation Intensity",
+      "definition": "A single summary score reflecting how manipulative the post is as a commercial persuasion artifact, based on the combined pattern of previously coded variables. This is not a simple average — it reflects the interaction between cue groups.",
+      "cue_groups": {
+        "group_A_persuasion": "Variables V4 (scripted pressure), V5 (trust exploitation), V6 (lifestyle identity appeal). These are the psychological selling techniques.",
+        "group_B_commerce": "Variable V3 (direct commerce trigger). This is the purchase conversion mechanism.",
+        "group_C_amplifiers": "Variables V7 (engagement engineering) and V8 (production intensity). These amplify the reach and emotional force of the sell."
+      },
+      "scale": {
+        "0": "No meaningful manipulation. The post may be commercial but has no active pressure, no purchase trigger, and no attention engineering. A clearly disclosed post (V2=2) with factual product info and no commerce trigger is a typical 0.",
+        "1": "Low. One cue group is mildly active but there is no conversion pressure. Example: aspirational lifestyle staging (V6=1) is present but no commerce trigger (V3=0) and no scripted pressure (V4=0–1).",
+        "2": "Moderate. Two of the three cue groups are clearly active. Example: scripted pressure present (Group A active via V4≥1) AND a commerce trigger exists (Group B active via V3=1), but production/engagement amplifiers are minimal.",
+        "3": "High. All three cue groups are strongly active. Minimum condition: V4=2 (strong scripted pressure) AND V3=1 (commerce trigger) AND at least one of: V5=2, V7=2, or V8≥2."
+      },
+      "scoring_logic": [
+        "First check Group B (V3): if V3=0, score is unlikely to exceed 1 unless amplifiers are extreme.",
+        "Then check Group A: how many of V4, V5, V6 are elevated (≥1)?",
+        "Then check Group C: are V7 or V8 elevated (≥1)?",
+        "Score 3 requires strength across ALL three groups — not just high values on a few variables.",
+        "Score 2 requires clear activity in two groups.",
+        "Score 1 requires only one group with mild signals and no conversion pressure."
+      ],
+      "escalation_rule": "If V10≥1 (teen targeting present) AND V11=3 (high-risk product), add 1 to the computed score, capped at 3. Vulnerable-audience targeting with a high-risk product amplifies harm regardless of other signals.",
+      "important": "V2 (Disclosure) does NOT reduce this score. A clearly disclosed ad can still score 3 if the persuasion mechanics are strong."
+    }
+
+  ]
+}

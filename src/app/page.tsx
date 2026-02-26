@@ -11,17 +11,16 @@ interface ProcessStep {
   status: 'pending' | 'active' | 'completed' | 'error';
 }
 
+interface CodebookVariable {
+  id: string;
+  name: string;
+  scale: number | string;
+  reason: string;
+}
+
 interface AnalysisResult {
-  contentSummary: string;
-  manipulationIndicators: string;
   imageAnalysis?: string;
-  finalVerdict: {
-    verdict: 'MANIPULATIVE - SEVERE' | 'MANIPULATIVE - MODERATE' | 'MANIPULATIVE - MILD' | 'POTENTIALLY MANIPULATIVE' | 'NOT MANIPULATIVE';
-    confidence: 'HIGH' | 'MEDIUM' | 'LOW';
-    categories: string[];
-    reasoning: string;
-    recommendations: string;
-  };
+  codebook: CodebookVariable[];
 }
 
 interface ExtractionData {
@@ -186,14 +185,7 @@ export default function Home() {
     }
   };
 
-  const getVerdictClass = (verdict: string) => {
-    if (verdict.includes('SEVERE')) return 'manipulative-severe';
-    if (verdict.includes('MODERATE')) return 'manipulative-moderate';
-    if (verdict.includes('MILD')) return 'manipulative-mild';
-    if (verdict === 'MANIPULATIVE') return 'manipulative-severe'; // Fallback
-    if (verdict === 'POTENTIALLY MANIPULATIVE') return 'potentially-manipulative';
-    return 'not-manipulative';
-  };
+
 
   return (
     <div className="app-container">
@@ -384,65 +376,23 @@ export default function Home() {
             </div>
           )}
 
-          {analysisResult?.finalVerdict && (
-            <>
-              {/* Verdict Card */}
-              <div className={`verdict-card ${getVerdictClass(analysisResult.finalVerdict.verdict)}`}>
-                <div className="verdict-label">Verdict</div>
-                <h2 className="verdict-title">{analysisResult.finalVerdict.verdict}</h2>
-                <div className="confidence-badge">
-                  Confidence: {analysisResult.finalVerdict.confidence}
-                </div>
-
-                {analysisResult.finalVerdict.categories.length > 0 && (
-                  <div className="verdict-categories">
-                    {analysisResult.finalVerdict.categories.map((category, index) => (
-                      <span key={index} className="category-tag">{category}</span>
-                    ))}
+          {analysisResult?.codebook && (
+            <div className="codebook-results-container" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>Codebook Analysis</h3>
+              {analysisResult.codebook.map((item, index) => (
+                <div key={index} className="codebook-item" style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: '1.25rem', borderTop: '3px solid var(--primary-accent)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                    <h4 style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', fontSize: '1.1rem' }}>{item.id}: {item.name}</h4>
+                    <span style={{ background: 'var(--primary-accent)', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', marginLeft: '1rem' }}>
+                      Scale: {item.scale}
+                    </span>
                   </div>
-                )}
-              </div>
-
-              {/* Analysis Accordion - Collapsed by Default */}
-              <div className="analysis-accordion">
-                <div className="analysis-item">
-                  <div className="analysis-item-header" onClick={() => toggleStep('content')}>
-                    <span className="analysis-number">1</span>
-                    <span className="analysis-title">Content Understanding</span>
-                    <span className="analysis-toggle">{expandedSteps.has('content') ? '▼' : '▶'}</span>
-                  </div>
-                  {expandedSteps.has('content') && (
-                    <div className="analysis-content">
-                      <MarkdownContent content={analysisResult.contentSummary} />
-                    </div>
-                  )}
+                  <p style={{ margin: 0, fontSize: '0.95rem', color: 'rgba(255, 255, 255, 0.85)', lineHeight: 1.5 }}>
+                    {item.reason}
+                  </p>
                 </div>
-
-                <div className="analysis-item">
-                  <div className="analysis-item-header" onClick={() => toggleStep('indicators')}>
-                    <span className="analysis-number">2</span>
-                    <span className="analysis-title">Manipulation Indicators & Severity</span>
-                    <span className="analysis-toggle">{expandedSteps.has('indicators') ? '▼' : '▶'}</span>
-                  </div>
-                  {expandedSteps.has('indicators') && (
-                    <div className="analysis-content">
-                      <MarkdownContent content={analysisResult.manipulationIndicators} />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Reasoning Section */}
-              <div className="reasoning-section">
-                <h4>🔎 Reasoning</h4>
-                <MarkdownContent content={analysisResult.finalVerdict.reasoning} />
-              </div>
-
-              <div className="reasoning-section">
-                <h4>💡 Recommendations</h4>
-                <MarkdownContent content={analysisResult.finalVerdict.recommendations} />
-              </div>
-            </>
+              ))}
+            </div>
           )}
         </div>
       </div>
