@@ -65,7 +65,7 @@ async function callLLM(prompt: string, model: string = 'cerebras-native'): Promi
     return response.choices[0]?.message?.content || '';
   } catch (error) {
     console.error(`LLM API Error (${model}):`, error);
-    return ''; 
+    throw error; // Throw instead of swallowing, to return a 500 HTTP error and stop parsing empty JSON
   }
 }
 
@@ -125,21 +125,48 @@ export async function POST(request: NextRequest) {
     console.log('Step 1: Analyzing visual content (Gemma 3 27B)...');
     const imageAnalysisPrompt = `Analyze the visual content of these Instagram Reel frames objectively.
 
-First, determine: Is this commercial/promotional content or personal/entertainment content?
+Focus on extracting factual visual details that align with social media manipulation constraints:
 
-Describe:
-1. **Scene & Setting**: What is visually happening? Home, studio, outdoor, product-focused?
-2. **Visual Elements & OCR**: Any brand logos, products prominently displayed, text overlays with offers?
-3. **Presentation Style**: Is it candid personal content or highly polished promotional content?
-4. **Commercial Indicators**: Are products being demonstrated? Are there before/after shots, filters, or price/discount displays?
+1. **Setting & Presentation**: 
+   - Is the video shot in a candid, user-generated style (e.g., a bedroom, car, or home kitchen) to build trust, or is it a highly polished commercial studio?
+   - Are there explicit disclosures of sponsorship (e.g., "#ad", "sponsored", "paid partnership") visible on screen?
+2. **Emotional & Psychological Pressure**:
+   - Are there text overlays mentioning urgency, sales, discounts, or deadlines (e.g., "Sale ends today", "Limited time", "Buy now")?
+   - Does the host's facial expression convey intense emotion, anxiety, or manufactured excitement?
+3. **Parasocial Interaction**:
+   - Does the creator make direct, intimate eye contact with the viewer?
+   - Do they use gestures (pointing at the camera, leaning in) to simulate a one-on-one conversation?
+4. **Visual Deception & Claims**:
+   - Are there side-by-side "Before & After" shots?
+   - Is a product being physically demonstrated, and does the demonstration appear exaggerated or artificially enhanced (e.g., heavy beauty filters, altered lighting on a product)?
 
-Be objective - describe what you SEE without assuming commercial intent.`;
+Provide a detailed paragraph synthesizing these specific visual aspects. Do not make assumptions about the creator's true intent—just stick to the visual facts.`;
 
-    const imageAnalysisResult = await gemmaModel.generateContent([
-      imageAnalysisPrompt,
-      ...imageParts,
-    ]);
-    const imageAnalysis = imageAnalysisResult.response.text();
+    let imageAnalysis = '';
+    try {
+      const imageAnalysisResult = await gemmaModel.generateContent([
+        imageAnalysisPrompt,
+        ...imageParts,
+      ]);
+      
+      // Some blocked responses don't throw an initial network error but throw when calling .text()
+      // or return empty candidates.
+      if (!imageAnalysisResult.response || !imageAnalysisResult.response.candidates || imageAnalysisResult.response.candidates.length === 0) {
+        throw new Error("Response blocked or no candidates returned by Gemma.");
+      }
+      
+      try {
+        imageAnalysis = imageAnalysisResult.response.text();
+      } catch (textError) {
+        throw new Error("Response was blocked by safety filters (PROHIBITED_CONTENT / OTHER).");
+      }
+      
+      if (!imageAnalysis) throw new Error("Empty text returned.");
+
+    } catch (gemmaError) {
+      console.error('Gemma 3 Image Analysis Error / Safety Block:', gemmaError);
+      imageAnalysis = '[Cannot describe the images due to PROHIBITED_CONTENT safety filters or an API error. Proceed with analysis using only the available text caption and audio transcription data.]';
+    }
 
     console.log(`Step 2: Performing Codebook Analysis using ${selectedModel}...`);
 
@@ -150,11 +177,18 @@ CRITICAL INSTRUCTIONS:
 - Read the CODEBOOK below carefully.
 - Evaluate the content using variables V0 through V12.
 - DO NOT CODE V9 (Saturation). Leave it completely out of your output.
-- For each coded variable, provide the assigned scale (numeric) and a 1-sentence reason referencing specific evidence from the transcript or visual descriptions.
+- For each coded variable, you MUST provide the assigned scale (numeric) and a 1-sentence reason referencing specific evidence from the transcript or visual descriptions.
 
 ACCURACY HINTS FOR V0 & V1:
 - The source URL domain is identified as: **${domain}**. Use this to explicitly determine V0 (Platform). For example, if it's instagram.com, V0 scale is 3. If tiktok.com, V0 scale is 2.
 - The video duration is calculated as: **${duration} seconds**. Use this to explicitly determine V1 (Content Type). If less than 180s (3 mins), V1 scale is 3. If 180s or longer, V1 scale is 4.
+
+EVALUATION HINTS FOR OTHER VARIABLES:
+- **V6 (Authenticity)**: Cross-reference the "Setting & Presentation" from the Visual Analysis with the transcript tone. Candid visual settings paired with highly scripted commercial pitches are a key indicator.
+- **V7 (Psychological Pressure)**: Look strictly for urgency ("now", "today only") and scarcity ("only 5 left", "limited edition") in both the transcript and visual text overlays.
+- **V8 (Parasocial)**: The Visual Analysis will tell you if there is direct eye contact or intimate camera angles. Combine this with transcript use of "you", "we", or sharing personal stories.
+- **V11 (Concealed Intent/Claims)**: Ensure you verify if the video masquerades as an organic review but is actually selling something (check for health or financial claims without proof).
+- **V12 (Deception)**: Rely on the Visual Analysis for notes on "Before & After" manipulations or exaggerated product demonstrations.
 
 CODEBOOK RULES:
 ${rulesJsonStr}
@@ -236,8 +270,8 @@ Example Format:
     // Structure logData for output
     const logData = {
       rowNumber: rowNumber || null,
-      Account_ID: uploaderName || "Unknown",
-      URL: url || "N/A",
+      Account_ID: rowNumber ? undefined : (uploaderName || "Unknown"), // Don't overwrite if batch processing
+      URL: rowNumber ? undefined : (url || "N/A"), // Don't overwrite if batch processing
       V0: varsMap["V0"],
       V1: varsMap["V1"],
       V2: varsMap["V2"],
@@ -249,7 +283,8 @@ Example Format:
       V8: varsMap["V8"],
       V10: varsMap["V10"],
       V11: varsMap["V11"],
-      V12: varsMap["V12"]
+      V12: varsMap["V12"],
+      Justifications: codebookData.map((v: any) => `${v.id}: ${v.reason}`).join('\n')
     };
 
     if (GOOGLE_SHEET_SCRIPT_URL) {

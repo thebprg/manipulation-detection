@@ -9,7 +9,7 @@ const execAsync = promisify(exec);
 
 export async function POST(request: NextRequest) {
   try {
-    const { url } = await request.json();
+    const { url, skipVideo } = await request.json();
 
     if (!url || !url.includes('instagram.com')) {
       return NextResponse.json(
@@ -31,8 +31,16 @@ export async function POST(request: NextRequest) {
     try {
       // Download video and extract metadata using yt-dlp
       console.log('Downloading video with yt-dlp and extracting metadata...');
+      
+      // Check for cookies.txt to bypass Instagram login walls / rate limits
+      const cookiesPath = path.join(process.cwd(), 'cookies.txt');
+      const cookiesArg = fs.existsSync(cookiesPath) ? `--cookies "${cookiesPath}"` : '';
+      
+      const ytDlpCmd = `yt-dlp -f "best[ext=mp4]" --no-playlist --write-info-json ${cookiesArg} -o "${videoPath}" "${url}"`;
+      console.log(`Executing yt-dlp command...`);
+      
       await execAsync(
-        `yt-dlp -f "best[ext=mp4]" --no-playlist --write-info-json -o "${videoPath}" "${url}"`,
+        ytDlpCmd,
         { timeout: 90000 }
       );
 
@@ -65,10 +73,15 @@ export async function POST(request: NextRequest) {
 
       // Extract audio using ffmpeg
       console.log('Extracting audio...');
-      await execAsync(
-        `ffmpeg -i "${videoPath}" -vn -acodec libmp3lame -q:a 2 "${audioPath}" -y`,
-        { timeout: 30000 }
-      );
+      let audioBase64 = '';
+      try {
+        await execAsync(
+          `ffmpeg -i "${videoPath}" -vn -acodec libmp3lame -q:a 2 "${audioPath}" -y`,
+          { timeout: 30000 }
+        );
+      } catch (audioExtErr) {
+        console.warn('Audio extraction failed or no audio stream found.');
+      }
 
       // Get video duration
       const { stdout: durationOutput } = await execAsync(
@@ -100,20 +113,30 @@ export async function POST(request: NextRequest) {
         frames.push(`data:image/jpeg;base64,${base64}`);
       }
 
-      // Read audio and convert to base64
-      const audioData = fs.readFileSync(audioPath);
-      const audioBase64 = audioData.toString('base64');
+      // Read audio and convert to base64 if it exists
+      if (fs.existsSync(audioPath)) {
+        const audioData = fs.readFileSync(audioPath);
+        audioBase64 = audioData.toString('base64');
+      }
 
-      // Read video and convert to base64 for playback
-      const videoData = fs.readFileSync(videoPath);
-      const videoBase64 = videoData.toString('base64');
+      // Read video and convert to base64 for playback, UNLESS skipVideo is true
+      let videoBase64Final = '';
+      if (!skipVideo) {
+        try {
+          const videoData = fs.readFileSync(videoPath);
+          const videoBase64 = videoData.toString('base64');
+          videoBase64Final = `data:video/mp4;base64,${videoBase64}`;
+        } catch (e) {
+          console.error("Failed to read video for base64: ", e);
+        }
+      }
 
       // Cleanup temp directory
       await fs.promises.rm(tempDir, { recursive: true, force: true });
 
       return NextResponse.json({
         videoPath: 'extracted',
-        videoBase64: `data:video/mp4;base64,${videoBase64}`,
+        videoBase64: videoBase64Final,
         audioPath: audioBase64,
         frames,
         duration,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { NVIDIA_MODELS } from '../lib/models';
@@ -63,8 +63,11 @@ export default function Home() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>('');
+  const [inputMode, setInputMode] = useState<'single' | 'batch'>('single');
 
   // Batch processing state
+  const stopBatchRef = useRef<boolean>(false);
+  const [isBatchStopping, setIsBatchStopping] = useState(false);
   const [pendingUrls, setPendingUrls] = useState<{rowNumber: number, url: string, accountId: string}[]>([]);
   const [isFetchingPending, setIsFetchingPending] = useState(false);
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
@@ -133,10 +136,11 @@ export default function Home() {
     try {
       // Step 1: Extract video and audio
       updateStepStatus('extract', 'active');
+      const isBatch = document.body.dataset.isBatchProcessing === "true" || rowNumber !== undefined;
       const extractResponse = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: targetUrl }),
+        body: JSON.stringify({ url: targetUrl, skipVideo: isBatch }),
       });
 
       if (!extractResponse.ok) {
@@ -219,28 +223,50 @@ export default function Home() {
   const handleBatchAnalyze = async () => {
     if (pendingUrls.length === 0) return;
     setIsBatchProcessing(true);
+    setIsBatchStopping(false);
+    stopBatchRef.current = false;
     document.body.dataset.isBatchProcessing = "true";
     setBatchProgress({ current: 0, total: pendingUrls.length });
     
     for (let i = 0; i < pendingUrls.length; i++) {
+      if (stopBatchRef.current) {
+        console.log('Batch processing stopped by user.');
+        break;
+      }
+
       const item = pendingUrls[i];
       setBatchProgress({ current: i + 1, total: pendingUrls.length });
       
       // Update UI URL input to show progress internally
       setUrl(item.url);
       
+      const startTime = Date.now();
       try {
         await runAnalysis(item.url, item.rowNumber);
       } catch (err) {
         console.error(`Error processing batch URL ${item.url}:`, err);
         // Continue to the next one even if error occurs
       }
+      const endTime = Date.now();
       
-      // Add a small 2s delay between successful runs to respect rate limits roughly
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (i < pendingUrls.length - 1 && !stopBatchRef.current) {
+        // Enforce a strict minimum 30 seconds per URL to avoid rate limits
+        const elapsedTime = endTime - startTime;
+        const MIN_DELAY_MS = 30000; 
+        
+        if (elapsedTime < MIN_DELAY_MS) {
+          const waitTime = MIN_DELAY_MS - elapsedTime;
+          console.log(`Finished under 30s. Waiting ${waitTime}ms to respect rate limit...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        } else {
+          // Add a tiny buffer if it already took longer than 30s
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
     }
     
     setIsBatchProcessing(false);
+    setIsBatchStopping(false);
     document.body.dataset.isBatchProcessing = "false";
     // Refresh list at the end
     await fetchPendingUrls();
@@ -288,59 +314,94 @@ export default function Home() {
 
         <div className="url-section">
           
-          <div className="batch-section" style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', border: '1px solid var(--border-color)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>Batch Processing</h3>
-              <button 
-                onClick={fetchPendingUrls} 
-                disabled={isFetchingPending || isBatchProcessing || isAnalyzing} 
-                style={{ padding: '0.4rem 0.8rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', cursor: 'pointer', color: 'white', fontSize: '0.85rem' }}
-              >
-                {isFetchingPending ? 'Fetching...' : 'Fetch Pending URLs'}
-              </button>
-            </div>
-            
-            {pendingUrls.length > 0 ? (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Found <strong>{pendingUrls.length}</strong> unattended URLs.</span>
-                <button 
-                  onClick={handleBatchAnalyze} 
-                  disabled={isBatchProcessing || isAnalyzing} 
-                  style={{ padding: '0.6rem 1.2rem', background: 'var(--primary-accent)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white', fontWeight: 'bold' }}
-                >
-                  {isBatchProcessing ? `Processing ${batchProgress.current} / ${batchProgress.total}...` : 'Run Batch Analysis'}
-                </button>
-              </div>
-            ) : (
-              <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No pending URLs fetched. Update your Google Apps Script, then click the button above to load rows that have a URL but no V0 score.</span>
-            )}
-          </div>
-
-          <div style={{ marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Or analyze a single URL manually:</div>
-          <div className="input-wrapper">
-            <input
-              type="text"
-              className="url-input"
-              placeholder="Paste Instagram Reel URL..."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={isAnalyzing}
-            />
-            <button
-              className="analyze-btn"
-              onClick={handleAnalyze}
-              disabled={isAnalyzing || !url.trim()}
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+            <button 
+              onClick={() => setInputMode('single')} 
+              style={{ background: 'none', border: 'none', color: inputMode === 'single' ? 'var(--primary-accent)' : 'var(--text-secondary)', fontWeight: inputMode === 'single' ? 'bold' : 'normal', cursor: 'pointer', padding: '0.5rem 0', fontSize: '1rem' }}
             >
-              {isAnalyzing ? (
-                <>
-                  <span className="spinner"></span>
-                  Analyzing...
-                </>
-              ) : (
-                '🚀 Analyze'
-              )}
+              Single URL Analysis
+            </button>
+            <button 
+              onClick={() => setInputMode('batch')}
+              style={{ background: 'none', border: 'none', color: inputMode === 'batch' ? 'var(--primary-accent)' : 'var(--text-secondary)', fontWeight: inputMode === 'batch' ? 'bold' : 'normal', cursor: 'pointer', padding: '0.5rem 0', fontSize: '1rem' }}
+            >
+              Batch Processing
             </button>
           </div>
+
+          {inputMode === 'batch' && (
+            <div className="batch-section" style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>Batch Fetch from Sheets</h3>
+                <button 
+                  onClick={fetchPendingUrls} 
+                  disabled={isFetchingPending || isBatchProcessing || isAnalyzing} 
+                  style={{ padding: '0.4rem 0.8rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', cursor: 'pointer', color: 'white', fontSize: '0.85rem' }}
+                >
+                  {isFetchingPending ? 'Fetching...' : 'Fetch Pending URLs'}
+                </button>
+              </div>
+              
+              {pendingUrls.length > 0 ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Found <strong>{pendingUrls.length}</strong> unattended URLs.</span>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {isBatchProcessing && (
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginRight: '0.5rem' }}>
+                        Processing {batchProgress.current} / {batchProgress.total}...
+                      </span>
+                    )}
+                    {isBatchProcessing ? (
+                      <button 
+                        onClick={() => { stopBatchRef.current = true; setIsBatchStopping(true); }}
+                        disabled={isBatchStopping}
+                        style={{ padding: '0.6rem 1.2rem', background: '#ef4444', border: 'none', borderRadius: '4px', cursor: isBatchStopping ? 'not-allowed' : 'pointer', color: 'white', fontWeight: 'bold' }}
+                      >
+                        {isBatchStopping ? 'Stopping after current...' : 'Stop Batch'}
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={handleBatchAnalyze} 
+                        disabled={isAnalyzing} 
+                        style={{ padding: '0.6rem 1.2rem', background: 'var(--primary-accent)', border: 'none', borderRadius: '4px', cursor: isAnalyzing ? 'not-allowed' : 'pointer', color: 'white', fontWeight: 'bold' }}
+                      >
+                        Run Batch Analysis
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No pending URLs fetched.</span>
+              )}
+            </div>
+          )}
+
+          {inputMode === 'single' && (
+            <div className="input-wrapper">
+              <input
+                type="text"
+                className="url-input"
+                placeholder="Paste Instagram Reel URL..."
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                disabled={isAnalyzing}
+              />
+              <button
+                className="analyze-btn"
+                onClick={handleAnalyze}
+                disabled={isAnalyzing || !url.trim()}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <span className="spinner"></span>
+                    Analyzing...
+                  </>
+                ) : (
+                  '🚀 Analyze'
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="left-content">

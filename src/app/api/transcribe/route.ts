@@ -8,10 +8,11 @@ export async function POST(request: NextRequest) {
     const { audioBase64 } = await request.json();
 
     if (!audioBase64) {
-      return NextResponse.json(
-        { error: 'No audio data provided' },
-        { status: 400 }
-      );
+      console.log("No audio base64 provided, bypassing transcription.");
+      return NextResponse.json({
+        transcription: '[No speech detected in audio]',
+        words: 0,
+      });
     }
 
     // Convert base64 to buffer
