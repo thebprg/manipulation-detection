@@ -185,11 +185,11 @@ Provide a detailed paragraph synthesizing these specific visual aspects. Do not 
 
     console.log(`Step 2: Performing Codebook Analysis using ${selectedModel}...`);
 
-    let formatHint = `- The video duration is calculated as: **${duration} seconds**. Use this to explicitly determine V1 (Content Type). If less than 180s (3 mins), V1 scale is 3. If 180s or longer, V1 scale is 4.`;
+    let formatHint = `- The video duration is calculated as: **${duration} seconds**. Use this to explicitly determine V2 (Post Media Format). Since this is a video reel, you MUST explicitly code V2 (Post Media Format) as 3.`;
     if (mediaType === 'image_single') {
-      formatHint = `- The media was explicitly extracted as a single image post. You MUST explicitly code V1 (Content Type) as 1.`;
+      formatHint = `- The media was explicitly extracted as a single image post. You MUST explicitly code V2 (Post Media Format) as 1.`;
     } else if (mediaType === 'image_carousel') {
-      formatHint = `- The media was explicitly extracted as an image carousel post (multiple swipeable images). You MUST explicitly code V1 (Content Type) as 2.`;
+      formatHint = `- The media was explicitly extracted as an image carousel post (multiple swipeable images). You MUST explicitly code V2 (Post Media Format) as 2.`;
     }
 
     const CODEBOOK_PROMPT = `You are a strict, objective analyst applying a specific codebook to rate a social media post for manipulation.
@@ -197,20 +197,18 @@ Provide a detailed paragraph synthesizing these specific visual aspects. Do not 
 CRITICAL INSTRUCTIONS:
 - Not every social media content is advertising and not every Ad is manipulative. Evaluate fairly.
 - Read the CODEBOOK below carefully.
-- Evaluate the content using variables V0 through V12.
-- DO NOT CODE V9 (Saturation). Leave it completely out of your output.
+- Evaluate the content using variables V0 through V14.
+- Make sure to carefully follow the scoring instructions for V14 (MANIP_INT) by scoring V5 through V12 first, and then mapping the sum to the 4-point scale.
 - For each coded variable, you MUST provide the assigned scale (numeric) and a 1-sentence reason referencing specific evidence from the transcript or visual descriptions.
 
-ACCURACY HINTS FOR V0 & V1:
-- The source URL domain is identified as: **${domain}**. Use this to explicitly determine V0 (Platform). For example, if it's instagram.com, V0 scale is 3. If tiktok.com, V0 scale is 2.
+ACCURACY HINTS FOR V1 & V2:
+- The source URL domain is identified as: **${domain}**. Use this to explicitly determine V1 (Platform). For example, if it's instagram.com, V1 scale is 3. If tiktok.com, V1 scale is 2.
 ${formatHint}
 
 EVALUATION HINTS FOR OTHER VARIABLES:
-- **V6 (Authenticity)**: Cross-reference the "Setting & Presentation" from the Visual Analysis with the transcript tone. Candid visual settings paired with highly scripted commercial pitches are a key indicator.
-- **V7 (Psychological Pressure)**: Look strictly for urgency ("now", "today only") and scarcity ("only 5 left", "limited edition") in both the transcript and visual text overlays.
-- **V8 (Parasocial)**: The Visual Analysis will tell you if there is direct eye contact or intimate camera angles. Combine this with transcript use of "you", "we", or sharing personal stories.
-- **V11 (Concealed Intent/Claims)**: Ensure you verify if the video masquerades as an organic review but is actually selling something (check for health or financial claims without proof).
-- **V12 (Deception)**: Rely on the Visual Analysis for notes on "Before & After" manipulations or exaggerated product demonstrations.
+- **V6 (TRUST_BLUR)**: Cross-reference the "Setting & Presentation" and "Parasocial Interaction" from the Visual Analysis with the transcript tone. Candid visual settings paired with highly scripted commercial pitches are a key indicator of trust exploitation.
+- **V5 (SCRIPT_STR)**: Look strictly for urgency ("now", "today only") and scarcity ("only 5 left", "limited edition") signals in both the transcript and visual descriptions.
+- **V11 (PROD_CUE)**: Rely on the Visual Analysis for notes on heavy text overlays, jump cuts, "Before & After" layouts or exaggerated product demonstrations.
 
 CODEBOOK RULES:
 ${rulesJsonStr}
@@ -234,15 +232,15 @@ Example Format:
 [
   {
     "id": "V0",
-    "name": "PLAT — Platform",
-    "scale": 3,
-    "reason": "The content is an Instagram reel as indicated by the context."
+    "name": "TYPE — Post Content Type",
+    "scale": 2,
+    "reason": "The content promotes an external brand as indicated by the affiliate link in the description."
   },
   {
     "id": "V1",
-    "name": "FORMAT — Content Type",
+    "name": "PLAT — Platform",
     "scale": 3,
-    "reason": "It is a short video reel with multiple frames analyzed."
+    "reason": "The content is an Instagram reel as indicated by the context."
   }
 ]
 `;
@@ -280,9 +278,8 @@ Example Format:
       }
     });
 
-    // Ensure V0..V12 exist
-    for (let i = 0; i <= 12; i++) {
-      if (i === 9) continue;
+    // Ensure V0..V14 exist
+    for (let i = 0; i <= 14; i++) {
       const vId = `V${i}`;
       if (varsMap[vId] === undefined) {
         varsMap[vId] = "N/A";
@@ -303,9 +300,12 @@ Example Format:
       V6: varsMap["V6"],
       V7: varsMap["V7"],
       V8: varsMap["V8"],
+      V9: varsMap["V9"],
       V10: varsMap["V10"],
       V11: varsMap["V11"],
       V12: varsMap["V12"],
+      V13: varsMap["V13"],
+      V14: varsMap["V14"],
       Justifications: codebookData.map((v: any) => `${v.id}: ${v.reason}`).join('\n')
     };
 
