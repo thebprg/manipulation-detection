@@ -29,6 +29,7 @@ interface ExtractionData {
   audioPath: string;
   frames: string[];
   duration: number;
+  mediaType?: string;
   reelDescription: string;
   reelTitle: string;
   uploaderName: string;
@@ -60,6 +61,7 @@ export default function Home() {
   const [reelTitle, setReelTitle] = useState<string>('');
   const [uploaderName, setUploaderName] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('cerebras-native');
+  const [selectedImageModel, setSelectedImageModel] = useState<string>('google/gemma-3-27b-it');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>('');
@@ -181,14 +183,16 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          transcription: transcribeData.transcription,
+          transcription: transcribeData?.transcription || '',
           frames: extractData.frames,
           reelDescription: extractData.reelDescription,
           url: targetUrl,
           duration: extractData.duration,
+          mediaType: extractData.mediaType,
           uploaderName: extractData.uploaderName,
           reelTitle: extractData.reelTitle,
           model: selectedModel,
+          imageModel: selectedImageModel,
           rowNumber
         }),
       });
@@ -284,6 +288,7 @@ export default function Home() {
             <p style={{ margin: 0, opacity: 0.8 }}>Project led by Dr. Huan Chen</p>
             <div className="model-selector-wrapper" style={{ minWidth: '200px' }}>
               <select 
+                title="Text Analysis Model"
                 className="model-select"
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
@@ -305,6 +310,34 @@ export default function Home() {
                 <optgroup label="Nvidia NIM Models">
                   {NVIDIA_MODELS.map(model => (
                     <option key={model} value={model}>{model.split('/').pop()}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+            <div className="model-selector-wrapper" style={{ minWidth: '200px' }}>
+              <select 
+                title="Image Analysis Model"
+                className="model-select"
+                value={selectedImageModel}
+                onChange={(e) => setSelectedImageModel(e.target.value)}
+                disabled={isAnalyzing}
+                style={{
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  width: 'auto',
+                  maxWidth: '300px'
+                }}
+              >
+                <option value="google/gemma-3-27b-it">📸 Google Gemma-3-27b-it (Native)</option>
+                <optgroup label="Nvidia NIM VLMs">
+                  {NVIDIA_MODELS.map(model => (
+                    <option key={`img-${model}`} value={model}>{model.split('/').pop()}</option>
                   ))}
                 </optgroup>
               </select>

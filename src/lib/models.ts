@@ -59,6 +59,8 @@ export const NVIDIA_MODELS = [
   "mistralai/mistral-7b-instruct",
   "mistralai/mistral-7b-instruct-v0.3",
   "mistralai/mistral-large",
+  "mistralai/mistral-large-3-675b-instruct-2512",
+  "mistralai/mistral-medium-3-instruct",
   "mistralai/mistral-nemotron",
   "mistralai/mistral-small-24b-instruct",
   "mistralai/mixtral-8x7b-instruct",

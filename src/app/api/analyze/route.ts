@@ -71,7 +71,7 @@ async function callLLM(prompt: string, model: string = 'cerebras-native'): Promi
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcription, frames, reelDescription, url, duration, uploaderName, reelTitle, model, rowNumber } = await request.json();
+    const { transcription, frames, reelDescription, url, duration, uploaderName, reelTitle, model, imageModel, mediaType, rowNumber } = await request.json();
 
     // Extract domain for V0 hints
     let domain = 'Unknown';
@@ -104,31 +104,21 @@ export async function POST(request: NextRequest) {
       rulesJsonStr = '{"error": "Could not load rules.json server-side"}';
     }
 
-    // Gemma 3 model for image analysis only
-    const gemmaModel = genAI.getGenerativeModel({ model: 'gemma-3-27b-it' });
-
     // Prepare image parts from frames (use up to 15 frames for analysis)
     const framesToUse = frames.slice(0, 15);
-    const imageParts = framesToUse.map((frame: string) => {
-      const base64Data = frame.replace(/^data:image\/\w+;base64,/, '');
-      return {
-        inlineData: {
-          data: base64Data,
-          mimeType: 'image/jpeg',
-        },
-      };
-    });
-
+    const selectedImageModel = imageModel || 'google/gemma-3-27b-it';
     const descriptionText = reelDescription || '[No description available]';
 
-    // Step 1: Image Analysis (Gemma 3 - for visual content context)
-    console.log('Step 1: Analyzing visual content (Gemma 3 27B)...');
-    const imageAnalysisPrompt = `Analyze the visual content of these Instagram Reel frames objectively.
+    let imageAnalysis = '';
+
+    // Step 1: Image Analysis (Vision context)
+    console.log(`Step 1: Analyzing visual content using ${selectedImageModel}...`);
+    const imageAnalysisPrompt = `Analyze the visual content of these Instagram post/Reel frames objectively.
 
 Focus on extracting factual visual details that align with social media manipulation constraints:
 
 1. **Setting & Presentation**: 
-   - Is the video shot in a candid, user-generated style (e.g., a bedroom, car, or home kitchen) to build trust, or is it a highly polished commercial studio?
+   - Is the video/image shot in a candid, user-generated style (e.g., a bedroom, car, or home kitchen) to build trust, or is it a highly polished commercial studio?
    - Are there explicit disclosures of sponsorship (e.g., "#ad", "sponsored", "paid partnership") visible on screen?
 2. **Emotional & Psychological Pressure**:
    - Are there text overlays mentioning urgency, sales, discounts, or deadlines (e.g., "Sale ends today", "Limited time", "Buy now")?
@@ -142,33 +132,65 @@ Focus on extracting factual visual details that align with social media manipula
 
 Provide a detailed paragraph synthesizing these specific visual aspects. Do not make assumptions about the creator's true intent—just stick to the visual facts.`;
 
-    let imageAnalysis = '';
     try {
-      const imageAnalysisResult = await gemmaModel.generateContent([
-        imageAnalysisPrompt,
-        ...imageParts,
-      ]);
-      
-      // Some blocked responses don't throw an initial network error but throw when calling .text()
-      // or return empty candidates.
-      if (!imageAnalysisResult.response || !imageAnalysisResult.response.candidates || imageAnalysisResult.response.candidates.length === 0) {
-        throw new Error("Response blocked or no candidates returned by Gemma.");
-      }
-      
-      try {
-        imageAnalysis = imageAnalysisResult.response.text();
-      } catch (textError) {
-        throw new Error("Response was blocked by safety filters (PROHIBITED_CONTENT / OTHER).");
-      }
-      
-      if (!imageAnalysis) throw new Error("Empty text returned.");
+      if (selectedImageModel === 'google/gemma-3-27b-it') {
+        const gemmaModel = genAI.getGenerativeModel({ model: 'gemma-3-27b-it' });
+        const imageParts = framesToUse.map((frame: string) => {
+          const base64Data = frame.replace(/^data:image\/\w+;base64,/, '');
+          return {
+            inlineData: {
+              data: base64Data,
+              mimeType: 'image/jpeg',
+            },
+          };
+        });
 
-    } catch (gemmaError) {
-      console.error('Gemma 3 Image Analysis Error / Safety Block:', gemmaError);
-      imageAnalysis = '[Cannot describe the images due to PROHIBITED_CONTENT safety filters or an API error. Proceed with analysis using only the available text caption and audio transcription data.]';
+        const imageAnalysisResult = await gemmaModel.generateContent([
+          imageAnalysisPrompt,
+          ...imageParts,
+        ]);
+        
+        if (!imageAnalysisResult.response || !imageAnalysisResult.response.candidates || imageAnalysisResult.response.candidates.length === 0) {
+          throw new Error("Response blocked or no candidates returned by Gemma.");
+        }
+        
+        try {
+          imageAnalysis = imageAnalysisResult.response.text();
+        } catch (textError) {
+          throw new Error("Response was blocked by safety filters (PROHIBITED_CONTENT / OTHER).");
+        }
+        
+        if (!imageAnalysis) throw new Error("Empty text returned.");
+
+      } else {
+        // Use Nvidia NIM VLM using OpenAI client struct
+        const contentArr: any[] = [{ type: 'text', text: imageAnalysisPrompt }];
+        for (const frame of framesToUse) {
+           contentArr.push({ type: 'image_url', image_url: { url: frame } });
+        }
+        
+        const response = await nvidia.chat.completions.create({
+          model: selectedImageModel,
+          messages: [{ role: 'user', content: contentArr }],
+          max_tokens: 1024,
+          temperature: 0.5,
+        });
+        imageAnalysis = response.choices[0]?.message?.content || '';
+        if (!imageAnalysis) throw new Error("Empty text returned by Nvidia VLM.");
+      }
+    } catch (visionError) {
+      console.error(`Vision Analysis Error (${selectedImageModel}):`, visionError);
+      imageAnalysis = '[Cannot describe the images due to safety filters or an API error with the selected VLM. Proceed with analysis using only the available text caption and audio transcription data.]';
     }
 
     console.log(`Step 2: Performing Codebook Analysis using ${selectedModel}...`);
+
+    let formatHint = `- The video duration is calculated as: **${duration} seconds**. Use this to explicitly determine V1 (Content Type). If less than 180s (3 mins), V1 scale is 3. If 180s or longer, V1 scale is 4.`;
+    if (mediaType === 'image_single') {
+      formatHint = `- The media was explicitly extracted as a single image post. You MUST explicitly code V1 (Content Type) as 1.`;
+    } else if (mediaType === 'image_carousel') {
+      formatHint = `- The media was explicitly extracted as an image carousel post (multiple swipeable images). You MUST explicitly code V1 (Content Type) as 2.`;
+    }
 
     const CODEBOOK_PROMPT = `You are a strict, objective analyst applying a specific codebook to rate a social media post for manipulation.
 
@@ -181,7 +203,7 @@ CRITICAL INSTRUCTIONS:
 
 ACCURACY HINTS FOR V0 & V1:
 - The source URL domain is identified as: **${domain}**. Use this to explicitly determine V0 (Platform). For example, if it's instagram.com, V0 scale is 3. If tiktok.com, V0 scale is 2.
-- The video duration is calculated as: **${duration} seconds**. Use this to explicitly determine V1 (Content Type). If less than 180s (3 mins), V1 scale is 3. If 180s or longer, V1 scale is 4.
+${formatHint}
 
 EVALUATION HINTS FOR OTHER VARIABLES:
 - **V6 (Authenticity)**: Cross-reference the "Setting & Presentation" from the Visual Analysis with the transcript tone. Candid visual settings paired with highly scripted commercial pitches are a key indicator.
