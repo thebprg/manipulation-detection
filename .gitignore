@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+research.md
+computational_analysis.md
+papers.md
 
 # vercel
 .vercel
