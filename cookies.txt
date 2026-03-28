@@ -5,9 +5,9 @@
 .instagram.com	TRUE	/	TRUE	1786082355	mid	aYgmMgAEAAHfQB-ZbxtzZq4K-QAE
 .instagram.com	TRUE	/	TRUE	1786082377	ps_l	1
 .instagram.com	TRUE	/	TRUE	1786082377	ps_n	1
-.instagram.com	TRUE	/	TRUE	1809149377	csrftoken	fb99aa306f41fdfbbf97b4999151b7c3
-.instagram.com	TRUE	/	TRUE	1782365377	ds_user_id	49458222933
+.instagram.com	TRUE	/	TRUE	1809185910	csrftoken	68a3e87ab4f3f1eaf6fd6aa7497c0c4e
+.instagram.com	TRUE	/	TRUE	1782401910	ds_user_id	49458222933
 .instagram.com	TRUE	/	TRUE	1775104581	dpr	1.3333333730697632
 .instagram.com	TRUE	/	TRUE	1775162577	wd	1440x727
 .instagram.com	TRUE	/	TRUE	1790133321	sessionid	49458222933%3AAwAaMxjDHWFej5%3A6%3AAYjGSZv1FTHtY-GYyCXsZEPwoHAiwc8UlcYmZSx-_zw
-.instagram.com	TRUE	/	TRUE	0	rur	"LDC\05449458222933\0541806125377:01fe4ebec1ec6892e9fc4bf832432b41ab0efe7c6d2a17a65faec856c3da7846844c091f"
+.instagram.com	TRUE	/	TRUE	0	rur	"GTN\05449458222933\0541806161910:01fe4cbfab0b89323ddef1000b058f8e0d61afa30f3bad704dec9f9ccd269f1da044dd4f"

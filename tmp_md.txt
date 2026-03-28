@@ -1,0 +1,16 @@
+| Variable | Category | Human Evaluated (N=100) | AI Evaluated (N=100) |
+| :--- | :--- | :--- | :--- |
+| V0 | Post Content Type | Usual (87%), Self-Promo (5%), Ad (8%) | Usual (57%), Self-Promo (7%), Ad (36%) |
+| V2 | Media Format | Image (9%), Carousel (24%), Video (64%) | Image (6%), Carousel (20%), Video (74%) |
+| V3 | Sponsorship Disclosure | None (79%), Ambiguous (19%), Clear (2%) | None (94%), Ambiguous (2%), Clear (4%) |
+| V4 | Direct Commerce Path | Present (4%) | Present (5%) |
+| V5 | Scripted Persuasion Pressure | Present (14%) | Present (9%) |
+| V6 | Trust Exploitation | Present (10%) | Present (9%) |
+| V7 | Lifestyle / Status Framing | Present (4%) | Present (15%) |
+| V8 | Value / Belief Framing | Present (3%) | Present (2%) |
+| V9 | Engagement Engineering | Present (2%) | Present (2%) |
+| V10 | Purchase Prompting | Present (5%) | Present (7%) |
+| V11 | Production Attention Cue | Present (15%) | Present (46%) |
+| V12 | Teen Audience Targeting | Present (1%) | Present (1%) |
+| V13 | Teen Risk Product | Present (2%) | Present (2%) |
+| **V14** | **Overall Manipulation (MANIP_INT)** | **None (74%), Low (16%), Moderate (10%), High (0%)** | **None (46%), Low (49%), Moderate (5%), High (0%)** |
