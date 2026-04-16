@@ -1,0 +1,21 @@
+### Detailed Output Logs (V0 – V14)
+
+Calculated from `output-logs.csv` (N = 396)
+
+| Variable | Category / Name | Evaluated Distribution |
+| :--- | :--- | :--- |
+| **V0** | Post Content Type | Usual Post (68.9%), Self-Promo (9.1%), Ad (22.0%) |
+| **V1** | Platform | X (Twitter) (0.0%), TikTok (0.0%), Instagram (100.0%), YouTube (0.0%) |
+| **V2** | Post Media Format | Single Image (19.9%), Carousel (47.7%), Video Reel (32.3%) |
+| **V3** | Sponsorship Disclosure | None (97.5%), Ambiguous/Low (0.8%), Clear/High (1.8%) |
+| **V4** | Direct Commerce Path | None (97.0%), Present (3.0%) |
+| **V5** | Scripted Persuasion Pressure | None (96.5%), Present (3.5%) |
+| **V6** | Trust Exploitation / Blurring | None (93.4%), Present (6.6%) |
+| **V7** | Lifestyle / Status Framing | None (80.8%), Present (19.2%) |
+| **V8** | Value / Belief-Based Framing | None (99.0%), Present (1.0%) |
+| **V9** | Engagement Engineering | None (100.0%), Present (0.0%) |
+| **V10** | Purchase Prompting | None (94.4%), Present (5.6%) |
+| **V11** | Production Attention Cue | None (80.8%), Present (19.2%) |
+| **V12** | Teen Audience Targeting | None (99.5%), Present (0.5%) |
+| **V13** | Teen-Relevant Risk Product | None (98.5%), Present (1.5%) |
+| **V14** | **Overall Manipulation Intensity** | **None (67.4%), Low (31.1%), Moderate (1.5%), High (0.0%)** |

@@ -283,7 +283,7 @@
         "Code 0 only when the product is clearly benign OR cannot be identified — not when it seems probably fine."
       ],
       "examples": {
-        "scale_1": "Rapid weight-loss supplement → 1. Acne-clearing serum with 'clinically proven' claims → 1. Vaping product → 1.",
+        "scale_1": "Rapid weight-loss supplement → 1. Acne-clearing serum with 'clinically proven' claims → 1. Vaping product → 1. or achohol-related/medicine/gambling/monetary-related/violent game → 1. ",
         "scale_0": "Branded tote bag → 0. Basic SPF moisturizer with no transformation claims → 0. Product not shown or named → 0."
       }
     },
